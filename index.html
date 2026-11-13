@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Candy Algebra Match - 糖果代數對對碰 (v7 Self-Calc Edition)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Nunito', 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 50%, #c2e9fb 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            overflow-y: auto;
+            touch-action: manipulation;
+        }
+
+        .font-fredoka { font-family: 'Fredoka One', 'Noto Sans TC', cursive; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.55);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.75);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        #game-board {
+            width: 100%;
+            max-width: 440px;
+            aspect-ratio: 1 / 1;
+            position: relative;
+            background: rgba(0, 0, 0, 0.12);
+            border-radius: 20px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.2), 0 10px 30px rgba(0,0,0,0.18);
+            padding: 6px;
+            box-sizing: border-box;
+            touch-action: none;
+        }
+
+        .tile {
+            position: absolute;
+            width: 12.5%;
+            height: 12.5%;
+            padding: 3px;
+            box-sizing: border-box;
+            transition: top 0.3s ease-in-out, left 0.3s ease-in-out, transform 0.2s;
+            cursor: pointer;
+            user-select: none;
+            z-index: 10;
+        }
+
+        .tile.selected {
+            transform: scale(1.15);
+            z-index: 20;
+        }
+
+        .tile.selected .candy {
+            box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.9);
+            animation: pulse 1s infinite;
+        }
+
+        /* 7秒自動提示閃爍動畫 (Hint Glow) */
+        .tile.hint-glow {
+            z-index: 25;
+            animation: hintBounce 0.9s infinite ease-in-out;
+        }
+
+        .tile.hint-glow .candy {
+            box-shadow: 0 0 18px 6px #fde047, inset 0 0 10px #ffffff !important;
+            border: 2.5px solid #fef08a !important;
+        }
+
+        /* 待解題高亮動畫 (Quiz Highlight) */
+        .tile.quiz-highlight {
+            z-index: 30;
+            animation: hintBounce 0.7s infinite ease-in-out;
+        }
+        .tile.quiz-highlight .candy {
+            box-shadow: 0 0 20px 6px #38bdf8, inset 0 0 10px #ffffff !important;
+            border: 2.5px solid #e0f2fe !important;
+        }
+
+        @keyframes hintBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.18); }
+        }
+
+        @keyframes pulse {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(1.25); }
+            100% { filter: brightness(1); }
+        }
+
+        .tile.popping {
+            transform: scale(1.25);
+            opacity: 0;
+            transition: transform 0.25s ease-out, opacity 0.25s ease-out;
+        }
+
+        .candy {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 5px 7px rgba(0,0,0,0.28), inset 0 -4px 6px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+
+        .candy::before {
+            content: '';
+            position: absolute;
+            top: 5%;
+            left: 15%;
+            width: 70%;
+            height: 35%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 100%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .term-text {
+            font-size: clamp(0.8rem, 3.3vw, 1.2rem);
+            font-weight: 900;
+            color: white;
+            text-shadow: 
+                2px 2px 0 #000, 
+                -1px -1px 0 #000, 
+                1px -1px 0 #000, 
+                -1px 1px 0 #000, 
+                0px 3px 5px rgba(0,0,0,0.6);
+            z-index: 2;
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        /* 合併浮動文字動畫 */
+        .combine-popup {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-family: 'Fredoka One', 'Noto Sans TC', cursive;
+            font-size: clamp(1.15rem, 4.8vw, 1.7rem);
+            font-weight: 900;
+            color: #ffd700;
+            text-shadow: 
+                0 0 10px rgba(255,215,0,0.8),
+                3px 3px 0 #000, 
+                -2px -2px 0 #000, 
+                2px -2px 0 #000, 
+                -2px 2px 0 #000;
+            pointer-events: none;
+            z-index: 100;
+            animation: floatUp 0.9s ease-out forwards;
+            white-space: nowrap;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translate(-50%, -20%) scale(0.6); }
+            30% { opacity: 1; transform: translate(-50%, -60%) scale(1.2); }
+            70% { opacity: 1; transform: translate(-50%, -100%) scale(1.0); }
+            100% { opacity: 0; transform: translate(-50%, -140%) scale(0.9); }
+        }
+
+        /* 經典 / 異類項模式下的糖果造型 */
+        .candy-x {
+            background: radial-gradient(circle at 30% 30%, #ff4b72, #cc0033);
+            border-radius: 30%;
+        }
+
+        .candy-y {
+            background: radial-gradient(circle at 30% 30%, #00d2ff, #3a7bd5);
+            border-radius: 50%;
+        }
+
+        .candy-x2 {
+            background: radial-gradient(circle at 50% 0%, #56ab2f, #a8e063);
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            box-shadow: none; 
+        }
+        .candy-x2::before { top: 15%; left: 25%; width: 50%; height: 25%; }
+
+        .candy-const {
+            background: radial-gradient(circle at 30% 30%, #ffd000, #ff8c00);
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            box-shadow: none;
+        }
+        .candy-const::before { top: 10%; }
+
+        .candy-xy {
+            background: radial-gradient(circle at 30% 30%, #b388ff, #7c4dff);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+        }
+
+        .candy-obstacle {
+            background: radial-gradient(circle at 35% 30%, #7f8c8d, #2c3e50);
+            border-radius: 35% 65% 55% 45% / 45% 35% 65% 55%;
+            box-shadow: inset 0 -3px 5px rgba(0,0,0,0.6);
+        }
+
+        /* 黑白挑戰模式專用樣式 */
+        #game-board.mode-challenge .candy {
+            background: radial-gradient(circle at 30% 30%, #4b5563, #111827) !important;
+            border-radius: 50% !important;
+            clip-path: none !important;
+            box-shadow: 0 6px 8px rgba(0,0,0,0.4), inset 0 -4px 6px rgba(0,0,0,0.6) !important;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        #game-board.mode-challenge .candy::before {
+            top: 8%; left: 18%; width: 64%; height: 32%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%);
+            border-radius: 50%;
+        }
+
+        #game-board.mode-challenge .candy-obstacle {
+            background: radial-gradient(circle at 35% 30%, #9ca3af, #374151) !important;
+            border: 2px dashed #ef4444 !important;
+        }
+
+        /* 錯誤診斷提示橫幅動畫 */
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .shake-anim {
+            animation: shakeError 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col py-2.5 px-3 w-full text-slate-800">
+
+    <div class="w-full max-w-[440px] flex flex-col gap-2 mx-auto">
+
+        <!-- Top Control & Header Panel -->
+        <div class="glass-panel rounded-3xl p-3 text-center relative">
+
+            <!-- Top Bar: Tools & Language Switcher -->
+            <div class="flex justify-between items-center mb-1.5 gap-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <button onclick="openModal('concept-modal')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-xl text-xs font-bold shadow flex items-center gap-1 transition-all" title="Concept Cheat Sheet">
+                        <span>📖</span> <span id="lbl-concept-btn">概念小幫手</span>
+                    </button>
+                    <button onclick="openAnalyticsModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-xl text-xs font-bold shadow flex items-center gap-1 transition-all" title="Learning Analytics">
+                        <span>📊</span> <span id="lbl-report-btn">學習報告</span>
+                    </button>
+                </div>
+
+                <!-- Language Switcher -->
+                <button onclick="toggleLanguage()" id="btn-lang" class="bg-white/80 hover:bg-white text-purple-900 border border-purple-300 px-2.5 py-1 rounded-xl text-xs font-black shadow-sm transition-all shrink-0">
+                    中 / EN
+                </button>
+            </div>
+
+            <h1 id="app-title" class="text-2xl sm:text-3xl font-fredoka text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-pink-600 drop-shadow-sm mb-1.5">
+                Candy Algebra 糖果代數
+            </h1>
+
+            <!-- Row 1: Visual Scaffolding Mode Selector (Classic / Obstacle / Challenge) -->
+            <div class="flex justify-center gap-1.5 mb-1.5 flex-wrap">
+                <button id="btn-mode-classic" onclick="setMode('classic')" class="px-3 py-1 rounded-full text-xs font-bold transition-all bg-purple-600 text-white shadow-md">
+                    經典同類項
+                </button>
+                <button id="btn-mode-obstacle" onclick="setMode('obstacle')" class="px-3 py-1 rounded-full text-xs font-bold transition-all bg-white/60 text-purple-900 hover:bg-white/90">
+                    異類項干擾戰 🪨
+                </button>
+                <button id="btn-mode-challenge" onclick="setMode('challenge')" class="px-3 py-1 rounded-full text-xs font-bold transition-all bg-white/60 text-purple-900 hover:bg-white/90">
+                    黑白極限戰 🧠⚪
+                </button>
+            </div>
+
+            <!-- Row 2: Gameplay Rule Sub-mode Selector (Endless / Timed / Mission) -->
+            <div class="bg-purple-900/10 rounded-2xl p-1 flex justify-between gap-1 mb-2">
+                <button id="btn-play-endless" onclick="setPlayStyle('endless')" class="flex-1 py-1 px-2 rounded-xl text-xs font-extrabold transition-all bg-white text-purple-800 shadow-sm">
+                    ♾️ 無限暢玩
+                </button>
+                <button id="btn-play-timed" onclick="setPlayStyle('timed')" class="flex-1 py-1 px-2 rounded-xl text-xs font-extrabold transition-all text-purple-900 hover:bg-white/50">
+                    ⏱️ 限時挑戰(3分)
+                </button>
+                <button id="btn-play-mission" onclick="setPlayStyle('mission')" class="flex-1 py-1 px-2 rounded-xl text-xs font-extrabold transition-all text-purple-900 hover:bg-white/50">
+                    🎯 任務制
+                </button>
+            </div>
+
+            <!-- Score, Timer/Mission Status & Compact Action Buttons (親自計算 + 重新開始) -->
+            <div class="flex justify-between items-center bg-white/60 rounded-2xl p-2 shadow-inner gap-1.5">
+                <div class="text-left min-w-[58px]">
+                    <div id="lbl-score-title" class="text-[10px] font-black uppercase text-purple-800 tracking-wider">得分 SCORE</div>
+                    <div id="score" class="text-xl sm:text-2xl font-fredoka text-pink-600 leading-tight">0</div>
+                </div>
+
+                <!-- Dynamic Center Widget: Timer or Mission Tracker -->
+                <div id="status-widget" class="flex-1 text-center px-1.5 py-1 rounded-xl bg-purple-50/80 border border-purple-200/60">
+                    <!-- Injected via JS based on playStyle -->
+                </div>
+
+                <!-- Action Buttons: 親自計算 (Placed in the old Hint button spot) + 重新開始 -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="btn-quiz-toggle" onclick="toggleQuizMode()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1.5 rounded-full text-xs font-black shadow-[0_3px_0_#94a3b8] active:translate-y-[2px] active:shadow-none transition-all flex items-center gap-1">
+                        <span>🧮</span><span id="lbl-quiz-toggle">親自計算: 關</span>
+                    </button>
+                    <button onclick="resetGame()" id="btn-restart" class="bg-gradient-to-b from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-[0_3px_0_#4a148c] active:translate-y-[2px] active:shadow-none transition-all">
+                        重新開始
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Diagnostic Error / Feedback Toast Bar -->
+        <div id="feedback-bar" class="glass-panel rounded-2xl px-3.5 py-2 min-h-[42px] flex items-center justify-center text-center shadow-sm transition-all border-l-4 border-l-indigo-500">
+            <span id="feedback-text" class="text-xs sm:text-sm font-extrabold text-slate-700">
+                👋 移動相鄰糖果，將 3 個或以上的「同類項」連成一線！
+            </span>
+        </div>
+
+        <!-- The 8x8 Grid -->
+        <div id="game-board">
+            <!-- Tiles injected by JS -->
+        </div>
+
+        <!-- Legend / Instructions -->
+        <div id="legend-panel" class="glass-panel rounded-2xl p-2 flex flex-wrap justify-center gap-2 shadow-md">
+            <!-- Dynamic Legend content injected by JS -->
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 0: 親自計算攔截提問視窗 (Self-Calc Quiz Modal) -->
+    <!-- ========================================== -->
+    <div id="quiz-modal" class="fixed inset-0 bg-slate-900/65 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div id="quiz-modal-card" class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border-4 border-indigo-400 text-center transition-all">
+            <div class="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-black mb-2">
+                <span>🧮</span>
+                <span id="quiz-modal-badge">親自計算挑戰 (Self-Calc)</span>
+            </div>
+            <h3 id="quiz-modal-title" class="text-base sm:text-lg font-black text-slate-800 mb-2">
+                請合併以下同類項：
+            </h3>
+
+            <!-- The Algebraic Expression Display -->
+            <div class="bg-slate-900 text-amber-300 font-fredoka text-xl sm:text-2xl py-3 px-4 rounded-2xl shadow-inner mb-3 tracking-wide border-2 border-slate-700">
+                <span id="quiz-equation">3xy + (-5xy) + xy = ?</span>
+            </div>
+
+            <!-- 3 Multiple Choice Option Buttons -->
+            <div id="quiz-options" class="grid grid-cols-3 gap-2.5 mb-3">
+                <!-- Dynamically generated option buttons -->
+            </div>
+
+            <!-- Instant Scaffolding Hint Box (Hidden until wrong attempt) -->
+            <div id="quiz-scaffold-box" class="hidden bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-2xl p-3 text-xs font-bold text-left leading-relaxed">
+                <!-- Populated dynamically with coefficient addition scaffolding -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 1: 概念小幫手 (Concept Cheat Sheet) -->
+    <!-- ========================================== -->
+    <div id="concept-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border-4 border-indigo-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3 mb-3">
+                <h2 id="modal-concept-title" class="text-lg font-black text-indigo-800 flex items-center gap-1.5">
+                    📖 代數概念小幫手：同類項 vs 異類項
+                </h2>
+                <button onclick="closeModal('concept-modal')" class="text-slate-400 hover:text-slate-700 text-xl font-black px-2">✕</button>
+            </div>
+
+            <div id="modal-concept-body" class="space-y-3 text-xs sm:text-sm text-slate-700">
+                <!-- Populated dynamically by language -->
+            </div>
+
+            <div class="mt-4 text-center">
+                <button onclick="closeModal('concept-modal')" id="modal-concept-close" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-full text-sm shadow-md">
+                    明白了！返回遊戲
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 2: 學習分析報告 (Learning Analytics) -->
+    <!-- ========================================== -->
+    <div id="analytics-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border-4 border-emerald-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3 mb-3">
+                <h2 id="modal-analytics-title" class="text-lg font-black text-emerald-800 flex items-center gap-1.5">
+                    📊 學生學習分析報告 (Learning Analytics)
+                </h2>
+                <button onclick="closeModal('analytics-modal')" class="text-slate-400 hover:text-slate-700 text-xl font-black px-2">✕</button>
+            </div>
+
+            <div id="analytics-content" class="space-y-3 text-xs sm:text-sm">
+                <!-- Injected via JS -->
+            </div>
+
+            <div class="mt-4 flex justify-end gap-2">
+                <button onclick="resetAnalytics()" id="btn-reset-analytics" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-full text-xs">
+                    清除數據
+                </button>
+                <button onclick="closeModal('analytics-modal')" id="modal-analytics-close" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-full text-xs shadow-md">
+                    關閉報告
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 3: 限時挑戰設定 / 結算視窗 -->
+    <!-- ========================================== -->
+    <div id="result-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-4 border-purple-300 text-center">
+            <div id="result-icon" class="text-5xl mb-2">🏆</div>
+            <h2 id="result-title" class="text-xl font-black text-purple-900 mb-2">挑戰完成！</h2>
+            <p id="result-desc" class="text-sm text-slate-600 mb-4"></p>
+            <div class="flex justify-center gap-2">
+                <button onclick="openAnalyticsModal(); closeModal('result-modal');" id="result-btn-report" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-full text-xs shadow">
+                    📊 查看學習報告
+                </button>
+                <button onclick="closeModal('result-modal'); resetGame();" id="result-btn-retry" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-5 rounded-full text-xs shadow">
+                    🔄 再玩一次
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 8;
+        const TILE_SIZE_PC = 100 / BOARD_SIZE;
+        const FAMILIES = ['x', 'y', 'x2', 'const', 'xy']; 
+
+        // 語言狀態 ('zh' 或 'en')
+        let lang = 'zh';
+
+        // 遊戲模式狀態
+        let currentMode = 'classic';    // 'classic', 'obstacle', 'challenge'
+        let playStyle = 'endless';      // 'endless', 'timed', 'mission'
+        let timedSubType = 'target';    // 'target' (目標500分) or 'pure' (純限時3分鐘)
+        const TIMED_TARGET_SCORE = 500;
+        const TIMED_SECONDS = 180;      // 3 分鐘 = 180 秒
+
+        // 親自計算模式開關 (Self-Calc Quiz Mode)
+        let quizModeEnabled = false;
+        let isQuizOpen = false;
+        let currentQuizCallback = null;
+        let currentQuizHadWrongAttempt = false;
+
+        let board = [];
+        let score = 0;
+        let selectedTile = null;
+        let isAnimating = false;
+        let isGameOver = false;
+        let startX, startY, sourceTile;
+
+        // 計時器與 7 秒自動提示計時器
+        let gameTimerInterval = null;
+        let remainingSeconds = TIMED_SECONDS;
+        let idleHintTimeout = null;
+        const IDLE_HINT_DELAY = 7000;   // 7 秒無操作自動閃爍提示
+
+        // 任務制狀態（每次固定 2 個目標）
+        let missionTargets = {};
+
+        // 學習分析數據 (Learning Analytics)
+        let analytics = {
+            successSwaps: 0,
+            failedSwaps: 0,
+            totalGroupsCombined: 0,
+            hintsUsed: 0,
+            quizTotalQuestions: 0,
+            quizFirstTryCorrect: 0,
+            quizWrongAttempts: 0,
+            errorTypes: {
+                diffExponent: 0,    // 次方不同 (e.g., x vs x²)
+                diffVar: 0,         // 變數不同 (e.g., x vs y, x vs xy)
+                constVsVar: 0,      // 常數與代數項混淆 (e.g., 5 vs 5x)
+                otherNoMatch: 0     // 一般無連線移動
+            },
+            familyMastery: {
+                x: { matched: 0, errors: 0 },
+                y: { matched: 0, errors: 0 },
+                x2: { matched: 0, errors: 0 },
+                xy: { matched: 0, errors: 0 },
+                const: { matched: 0, errors: 0 }
+            }
+        };
+
+        // 雙語字典 (I18N Dictionary)
+        const I18N = {
+            zh: {
+                title: "Candy Algebra 糖果代數",
+                conceptBtn: "概念小幫手",
+                reportBtn: "學習報告",
+                modeClassic: "經典同類項",
+                modeObstacle: "異類項干擾戰 🪨",
+                modeChallenge: "黑白極限戰 🧠⚪",
+                playEndless: "♾️ 無限暢玩",
+                playTimed: "⏱️ 限時挑戰(3分)",
+                playMission: "🎯 任務制",
+                quizToggleOff: "親自計算: 關",
+                quizToggleOn: "親自計算: 開",
+                scoreTitle: "得分 SCORE",
+                restartBtn: "重新開始",
+                welcomeMsg: "👋 移動相鄰糖果，將 3 個或以上的「同類項」連成一線！",
+                combinePrefix: "合併",
+                legendChallenge: "黑白挑戰模式：所有項均為黑白圓形，請細心閱讀代數式消除同類項！",
+                legendObstacle: "z³(障礙)",
+                legendConst: "常數",
+                endlessStatus: "♾️ 自由練習：不限時間",
+                timedTargetLabel: "目標: 500分",
+                timedPureLabel: "純限時挑戰",
+                switchTimedMode: "切換",
+                missionTitle: "🎯 本局任務：",
+                autoHintTriggered: "💡 超過 7 秒未移動，系統已為你閃爍標示出一組可配對的同類項！",
+                noMovesShuffle: "🔄 棋盤上暫無可配對步數，系統已自動重新洗牌！",
+                // Quiz Modal
+                quizBadge: "親自計算挑戰 (Self-Calc)",
+                quizTitle: "請合併以下同類項：",
+                quizCorrectToast: (eqStr, bonus) => `🎉 計算正確（+${bonus}分）！成功合併：${eqStr}`,
+                // Error Diagnostics
+                errExponent: (t1, t2) => `❌ 無法合併！「${t1}」和「${t2}」雖然都有 x，但次方（指數 1 與 2）不同，屬於異類項喔！`,
+                errConstVsVar: (t1, t2) => `❌ 無法合併！「${t1}」和「${t2}」一個含有未知數、一個是純數字（常數項），屬於異類項！`,
+                errCompositeXY: (t1, t2) => `❌ 無法合併！「${t1}」和「${t2}」所含的變數組合不同（xy 必須同時含有 x 與 y），屬於異類項！`,
+                errDiffVar: (t1, t2) => `❌ 無法合併！「${t1}」和「${t2}」的未知數符號不同，屬於異類項喔！`,
+                errSameFamNoLine: (t1, t2, famName) => `⚠️ 「${t1}」和「${t2}」確實是同類項（${famName}），但交換後還沒有排成 3 個一直線喔！`,
+                errGenericNoLine: (t1, t2) => `❌ 交換「${t1}」與「${t2}」無法讓 3 個同類項連成一線！`,
+                msgSuccessCombine: (eqStr) => `✅ 太棒了！成功合併同類項：${eqStr}`,
+                // Modals
+                conceptModalTitle: "📖 代數概念小幫手：同類項 vs 異類項",
+                conceptClose: "明白了！返回遊戲",
+                analyticsTitle: "📊 學生學習分析報告 (Learning Analytics)",
+                analyticsReset: "清除數據",
+                analyticsClose: "關閉報告",
+                resWinTitle: "🎉 恭喜完成挑戰！",
+                resTimeUpTitle: "⏰ 時間到！挑戰結束",
+                resBtnReport: "📊 查看學習報告",
+                resBtnRetry: "🔄 再玩一次"
+            },
+            en: {
+                title: "Candy Algebra Match",
+                conceptBtn: "Concept Guide",
+                reportBtn: "Analytics",
+                modeClassic: "Classic Mode",
+                modeObstacle: "Obstacle Mode 🪨",
+                modeChallenge: "B&W Challenge 🧠⚪",
+                playEndless: "♾️ Endless",
+                playTimed: "⏱️ Timed (3m)",
+                playMission: "🎯 Mission",
+                quizToggleOff: "Self-Calc: OFF",
+                quizToggleOn: "Self-Calc: ON",
+                scoreTitle: "SCORE",
+                restartBtn: "Restart",
+                welcomeMsg: "👋 Swap adjacent candies to match 3 or more LIKE TERMS in a line!",
+                combinePrefix: "Combined",
+                legendChallenge: "B&W Challenge: Visual cues removed! Read the algebraic terms carefully to match like terms.",
+                legendObstacle: "z³(Obstacle)",
+                legendConst: "Constant",
+                endlessStatus: "♾️ Endless Practice",
+                timedTargetLabel: "Goal: 500 pts",
+                timedPureLabel: "3m Highscore",
+                switchTimedMode: "Switch",
+                missionTitle: "🎯 Mission:",
+                autoHintTriggered: "💡 Idle for 7s: Highlighted a valid move to help you out!",
+                noMovesShuffle: "🔄 No valid moves left on board. Auto-shuffling candies!",
+                // Quiz Modal
+                quizBadge: "Self-Calc Challenge",
+                quizTitle: "Combine these like terms:",
+                quizCorrectToast: (eqStr, bonus) => `🎉 Correct (+${bonus} pts)! Combined: ${eqStr}`,
+                // Error Diagnostics
+                errExponent: (t1, t2) => `❌ Cannot combine! "${t1}" and "${t2}" have different exponents (power 1 vs 2), so they are UNLIKE terms!`,
+                errConstVsVar: (t1, t2) => `❌ Cannot combine! "${t1}" and "${t2}" mix a variable term with a constant number — they are UNLIKE terms!`,
+                errCompositeXY: (t1, t2) => `❌ Cannot combine! "${t1}" and "${t2}" do not share the exact same variables (xy requires both x and y)!`,
+                errDiffVar: (t1, t2) => `❌ Cannot combine! "${t1}" and "${t2}" have different variables, so they are UNLIKE terms!`,
+                errSameFamNoLine: (t1, t2, famName) => `⚠️ "${t1}" and "${t2}" ARE like terms (${famName}), but swapping them doesn't form a line of 3 yet!`,
+                errGenericNoLine: (t1, t2) => `❌ Swapping "${t1}" and "${t2}" does not align 3 like terms in a row or column!`,
+                msgSuccessCombine: (eqStr) => `✅ Great job! Combined like terms: ${eqStr}`,
+                // Modals
+                conceptModalTitle: "📖 Concept Cheat Sheet: Like vs. Unlike Terms",
+                conceptClose: "Got it! Back to Game",
+                analyticsTitle: "📊 Student Learning Analytics Report",
+                analyticsReset: "Reset Data",
+                analyticsClose: "Close Report",
+                resWinTitle: "🎉 Challenge Accomplished!",
+                resTimeUpTitle: "⏰ Time's Up!",
+                resBtnReport: "📊 View Analytics",
+                resBtnRetry: "🔄 Play Again"
+            }
+        };
+
+        const boardEl = document.getElementById('game-board');
+        const scoreEl = document.getElementById('score');
+        const legendEl = document.getElementById('legend-panel');
+        const feedbackBar = document.getElementById('feedback-bar');
+        const feedbackText = document.getElementById('feedback-text');
+        const statusWidget = document.getElementById('status-widget');
+
+        /* ==========================================
+           1. 語言切換與介面更新 (Bilingual Support)
+           ========================================== */
+        function toggleLanguage() {
+            lang = (lang === 'zh') ? 'en' : 'zh';
+            applyLanguageUI();
+        }
+
+        function applyLanguageUI() {
+            const t = I18N[lang];
+            document.getElementById('app-title').innerText = t.title;
+            document.getElementById('lbl-concept-btn').innerText = t.conceptBtn;
+            document.getElementById('lbl-report-btn').innerText = t.reportBtn;
+            document.getElementById('btn-mode-classic').innerText = t.modeClassic;
+            document.getElementById('btn-mode-obstacle').innerText = t.modeObstacle;
+            document.getElementById('btn-mode-challenge').innerText = t.modeChallenge;
+            document.getElementById('btn-play-endless').innerText = t.playEndless;
+            document.getElementById('btn-play-timed').innerText = t.playTimed;
+            document.getElementById('btn-play-mission').innerText = t.playMission;
+            document.getElementById('lbl-score-title').innerText = t.scoreTitle;
+            document.getElementById('btn-restart').innerText = t.restartBtn;
+            document.getElementById('btn-lang').innerText = lang === 'zh' ? '🌐 EN / 中' : '🌐 中 / EN';
+
+            document.getElementById('quiz-modal-badge').innerText = t.quizBadge;
+            document.getElementById('quiz-modal-title').innerText = t.quizTitle;
+
+            document.getElementById('modal-concept-title').innerText = t.conceptModalTitle;
+            document.getElementById('modal-concept-close').innerText = t.conceptClose;
+            document.getElementById('modal-analytics-title').innerText = t.analyticsTitle;
+            document.getElementById('btn-reset-analytics').innerText = t.analyticsReset;
+            document.getElementById('modal-analytics-close').innerText = t.analyticsClose;
+            document.getElementById('result-btn-report').innerText = t.resBtnReport;
+            document.getElementById('result-btn-retry').innerText = t.resBtnRetry;
+
+            updateQuizToggleUI();
+            setFeedback(t.welcomeMsg, 'info');
+            updateLegend();
+            updateStatusWidget();
+            renderConceptModalContent();
+        }
+
+        /* ==========================================
+           1B. 親自計算模式開關與彈窗邏輯
+           ========================================== */
+        function toggleQuizMode() {
+            if (isAnimating || isQuizOpen) return;
+            quizModeEnabled = !quizModeEnabled;
+            updateQuizToggleUI();
+            const msg = lang === 'zh'
+                ? (quizModeEnabled ? '🧮 已開啟「親自計算」：連線時將彈出問題讓你計算係數，答對可獲額外加分！' : '🧮 已關閉「親自計算」：連成一線時電腦將自動計算並消除。')
+                : (quizModeEnabled ? '🧮 Self-Calc ON: Solve the sum when matching like terms for bonus points!' : '🧮 Self-Calc OFF: Like terms will combine automatically.');
+            setFeedback(msg, 'info');
+        }
+
+        function updateQuizToggleUI() {
+            const t = I18N[lang];
+            const btn = document.getElementById('btn-quiz-toggle');
+            const lbl = document.getElementById('lbl-quiz-toggle');
+
+            if (quizModeEnabled) {
+                btn.className = "bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 rounded-full text-xs font-black shadow-[0_3px_0_#047857] active:translate-y-[2px] active:shadow-none transition-all flex items-center gap-1";
+                lbl.innerText = t.quizToggleOn;
+            } else {
+                btn.className = "bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1.5 rounded-full text-xs font-black shadow-[0_3px_0_#94a3b8] active:translate-y-[2px] active:shadow-none transition-all flex items-center gap-1";
+                lbl.innerText = t.quizToggleOff;
+            }
+        }
+
+        function generateDistractors(family, correctCoeff) {
+            const correctText = formatCombinedResult(family, correctCoeff);
+            const optionsSet = new Set([correctText]);
+            let base = family === 'x2' ? 'x²' : family;
+
+            // 常見學生迷思概念干擾項 (Pedagogical Distractors)
+            const candidates = [];
+
+            // 迷思 1：把 1x 或 -1x 直接寫成 1x / -1x，或正負號顛倒
+            if (family !== 'const') {
+                if (correctCoeff === 1) candidates.push(`1${base}`);
+                if (correctCoeff === -1) candidates.push(`-1${base}`);
+            }
+            if (correctCoeff !== 0) {
+                candidates.push(formatCombinedResult(family, -correctCoeff));
+            }
+
+            // 迷思 2：加減計算偏誤 (±1, ±2, ±3)
+            const offsets = [1, -1, 2, -2, 3, -3, 4];
+            for (let off of offsets) {
+                candidates.push(formatCombinedResult(family, correctCoeff + off));
+            }
+
+            for (let cand of candidates) {
+                if (optionsSet.size >= 3) break;
+                if (cand && !optionsSet.has(cand)) {
+                    optionsSet.add(cand);
+                }
+            }
+
+            return Array.from(optionsSet).sort(() => Math.random() - 0.5);
+        }
+
+        function buildScaffoldingHint(family, coeffs, sumCoeff) {
+            let base = family === 'x2' ? 'x²' : family;
+            let coeffExpr = coeffs.map((c, i) => (i > 0 && c < 0) ? `(${c})` : `${c}`).join(' + ');
+
+            if (lang === 'zh') {
+                if (family === 'const') {
+                    return `💡 <strong>鷹架提示：</strong>請將這幾個常數直接相加：<br><code class="bg-white px-1.5 py-0.5 rounded border">${coeffExpr}</code> 是多少呢？注意正負號運算喔！`;
+                }
+                let unitNote = "";
+                if (sumCoeff === 1) {
+                    unitNote = `<br>⚠️ <strong>特別注意：</strong>係數是 <code>1</code> 時，通常省略不寫，<code>1${base}</code> 要寫成 <strong><code>${base}</code></strong> 喔！`;
+                } else if (sumCoeff === -1) {
+                    unitNote = `<br>⚠️ <strong>特別注意：</strong>係數是 <code>-1</code> 時，1 會省略，<code>-1${base}</code> 要寫成 <strong><code>-${base}</code></strong> 喔！`;
+                } else if (sumCoeff === 0) {
+                    unitNote = `<br>⚠️ <strong>特別注意：</strong>當係數總和為 <code>0</code> 時，<code>0${base}</code> 完全抵銷，結果就是 <strong><code>0</code></strong> 喔！`;
+                }
+                return `💡 <strong>鷹架提示：</strong>合併同類項時，未知數部分 <code>${base}</code> 保持不變，只需把前面的<strong>係數加起來</strong>：<br>請問 <code class="bg-white px-1.5 py-0.5 rounded border">${coeffExpr} = ?</code>${unitNote}`;
+            } else {
+                if (family === 'const') {
+                    return `💡 <strong>Scaffolding Hint:</strong> Add the constant numbers together:<br>What is <code class="bg-white px-1.5 py-0.5 rounded border">${coeffExpr}</code>? Watch the positive/negative signs!`;
+                }
+                let unitNote = "";
+                if (sumCoeff === 1) {
+                    unitNote = `<br>⚠️ <strong>Note:</strong> A coefficient of <code>1</code> is omitted, so <code>1${base}</code> is written simply as <strong><code>${base}</code></strong>!`;
+                } else if (sumCoeff === -1) {
+                    unitNote = `<br>⚠️ <strong>Note:</strong> A coefficient of <code>-1</code> omits the 1, so <code>-1${base}</code> is written as <strong><code>-${base}</code></strong>!`;
+                } else if (sumCoeff === 0) {
+                    unitNote = `<br>⚠️ <strong>Note:</strong> When coefficients sum to <code>0</code>, the terms cancel out completely to <strong><code>0</code></strong>!`;
+                }
+                return `💡 <strong>Scaffolding Hint:</strong> Keep the variable part <code>${base}</code> unchanged and <strong>add the coefficients</strong>:<br>What is <code class="bg-white px-1.5 py-0.5 rounded border">${coeffExpr} = ?</code>${unitNote}`;
+            }
+        }
+
+        function triggerActiveQuizForGroup(group, onSolvedCallback) {
+            isQuizOpen = true;
+            currentQuizHadWrongAttempt = false;
+            currentQuizCallback = onSolvedCallback;
+            analytics.quizTotalQuestions++;
+
+            let coeffs = [];
+            let termStrings = [];
+            let sumCoeff = 0;
+
+            group.tiles.forEach(t => {
+                t.element.classList.add('quiz-highlight');
+                let c = getCoefficient(t);
+                coeffs.push(c);
+                sumCoeff += c;
+                let rawTxt = t.element.querySelector('.term-text').innerText;
+                termStrings.push(rawTxt.startsWith('-') ? `(${rawTxt})` : rawTxt);
+            });
+
+            const correctText = formatCombinedResult(group.family, sumCoeff);
+            const eqDisplay = `${termStrings.join(' + ')} = ?`;
+            const fullEquation = `${termStrings.join(' + ')} = ${correctText}`;
+
+            document.getElementById('quiz-equation').innerText = eqDisplay;
+
+            const scaffoldBox = document.getElementById('quiz-scaffold-box');
+            scaffoldBox.classList.add('hidden');
+            scaffoldBox.innerHTML = buildScaffoldingHint(group.family, coeffs, sumCoeff);
+
+            const options = generateDistractors(group.family, sumCoeff);
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+
+            options.forEach(optText => {
+                const btn = document.createElement('button');
+                btn.className = "py-3 px-2 rounded-2xl font-fredoka text-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-2 border-indigo-300 shadow-sm active:scale-95 transition-all";
+                btn.innerText = optText;
+                btn.onclick = () => handleQuizOptionClick(btn, optText, correctText, fullEquation, group);
+                optionsContainer.appendChild(btn);
+            });
+
+            openModal('quiz-modal');
+        }
+
+        function handleQuizOptionClick(btnEl, chosenText, correctText, fullEquation, group) {
+            const cardEl = document.getElementById('quiz-modal-card');
+            const scaffoldBox = document.getElementById('quiz-scaffold-box');
+
+            if (chosenText === correctText) {
+                // 答對！
+                btnEl.className = "py-3 px-2 rounded-2xl font-fredoka text-lg bg-emerald-500 text-white border-2 border-emerald-600 shadow-md scale-105 transition-all";
+
+                if (!currentQuizHadWrongAttempt) {
+                    analytics.quizFirstTryCorrect++;
+                }
+
+                const bonusPts = currentQuizHadWrongAttempt ? 15 : 30;
+                score += bonusPts;
+                scoreEl.innerText = score;
+
+                setTimeout(() => {
+                    group.tiles.forEach(t => t.element?.classList.remove('quiz-highlight'));
+                    closeModal('quiz-modal');
+                    isQuizOpen = false;
+                    setFeedback(I18N[lang].quizCorrectToast(fullEquation, bonusPts), 'success');
+                    if (currentQuizCallback) {
+                        const cb = currentQuizCallback;
+                        currentQuizCallback = null;
+                        cb();
+                    }
+                }, 380);
+            } else {
+                // 答錯：記錄錯誤並顯示即時鷹架提示
+                currentQuizHadWrongAttempt = true;
+                analytics.quizWrongAttempts++;
+                btnEl.disabled = true;
+                btnEl.className = "py-3 px-2 rounded-2xl font-fredoka text-lg bg-rose-100 text-rose-400 border-2 border-rose-200 line-through opacity-70 cursor-not-allowed";
+
+                cardEl.classList.remove('shake-anim');
+                void cardEl.offsetWidth;
+                cardEl.classList.add('shake-anim');
+
+                scaffoldBox.classList.remove('hidden');
+            }
+        }
+
+        function renderConceptModalContent() {
+            const container = document.getElementById('modal-concept-body');
+            if (lang === 'zh') {
+                container.innerHTML = `
+                    <div class="bg-indigo-50 p-3.5 rounded-2xl border border-indigo-200">
+                        <div class="font-black text-indigo-900 text-sm mb-1">✅ 什麼是「同類項 (Like Terms)」？</div>
+                        <p class="text-slate-700 leading-relaxed">
+                            所含的<strong>未知數（變數 Variable）完全相同</strong>，且每個未知數的<strong>次方（指數 Exponent）也完全相同</strong>的項。常數項（純數字）彼此也是同類項。<br>
+                            <span class="text-indigo-700 font-bold">💡 規則：只有同類項才可以相加或相減（合併係數）！</span>
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2">
+                        <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                            <div><span class="font-black text-emerald-800">同類項例子：</span> <code class="bg-white px-1.5 py-0.5 rounded font-bold">3x</code> 與 <code class="bg-white px-1.5 py-0.5 rounded font-bold">-5x</code></div>
+                            <span class="text-xs font-bold text-emerald-700">合併 ➔ (3 - 5)x = -2x</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                            <div><span class="font-black text-emerald-800">同類項例子：</span> <code class="bg-white px-1.5 py-0.5 rounded font-bold">2x²</code> 與 <code class="bg-white px-1.5 py-0.5 rounded font-bold">x²</code></div>
+                            <span class="text-xs font-bold text-emerald-700">合併 ➔ (2 + 1)x² = 3x²</span>
+                        </div>
+                    </div>
+                    <div class="bg-rose-50 p-3.5 rounded-2xl border border-rose-200">
+                        <div class="font-black text-rose-900 text-sm mb-1">❌ 什麼是「異類項 (Unlike Terms)」？（不可合併！）</div>
+                        <ul class="list-disc list-inside space-y-1 text-slate-700">
+                            <li><code class="font-bold text-rose-700">3x</code> 和 <code class="font-bold text-rose-700">3y</code>：未知數符號不同（x 與 y）。</li>
+                            <li><code class="font-bold text-rose-700">2x</code> 和 <code class="font-bold text-rose-700">2x²</code>：未知數雖然都是 x，但<strong>次方不同</strong>（1次方 vs 2次方）。</li>
+                            <li><code class="font-bold text-rose-700">4x</code> 和 <code class="font-bold text-rose-700">4xy</code>：所含未知數組合不同（單一 x vs 乘積 xy）。</li>
+                            <li><code class="font-bold text-rose-700">5</code> 和 <code class="font-bold text-rose-700">5x</code>：常數項（純數字）不能與含有未知數的項合併。</li>
+                        </ul>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="bg-indigo-50 p-3.5 rounded-2xl border border-indigo-200">
+                        <div class="font-black text-indigo-900 text-sm mb-1">✅ What are "Like Terms"?</div>
+                        <p class="text-slate-700 leading-relaxed">
+                            Terms that have the <strong>exact same variables</strong> raised to the <strong>exact same exponents (powers)</strong>. All constant numbers are also like terms.<br>
+                            <span class="text-indigo-700 font-bold">💡 Rule: Only LIKE terms can be combined (by adding/subtracting their coefficients)!</span>
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2">
+                        <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                            <div><span class="font-black text-emerald-800">Like Terms:</span> <code class="bg-white px-1.5 py-0.5 rounded font-bold">3x</code> & <code class="bg-white px-1.5 py-0.5 rounded font-bold">-5x</code></div>
+                            <span class="text-xs font-bold text-emerald-700">Combine ➔ (3 - 5)x = -2x</span>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                            <div><span class="font-black text-emerald-800">Like Terms:</span> <code class="bg-white px-1.5 py-0.5 rounded font-bold">2x²</code> & <code class="bg-white px-1.5 py-0.5 rounded font-bold">x²</code></div>
+                            <span class="text-xs font-bold text-emerald-700">Combine ➔ (2 + 1)x² = 3x²</span>
+                        </div>
+                    </div>
+                    <div class="bg-rose-50 p-3.5 rounded-2xl border border-rose-200">
+                        <div class="font-black text-rose-900 text-sm mb-1">❌ What are "Unlike Terms"? (Cannot be combined!)</div>
+                        <ul class="list-disc list-inside space-y-1 text-slate-700">
+                            <li><code class="font-bold text-rose-700">3x</code> vs <code class="font-bold text-rose-700">3y</code>: Different variables (x vs y).</li>
+                            <li><code class="font-bold text-rose-700">2x</code> vs <code class="font-bold text-rose-700">2x²</code>: Same variable x, but <strong>different exponents</strong> (power 1 vs 2).</li>
+                            <li><code class="font-bold text-rose-700">4x</code> vs <code class="font-bold text-rose-700">4xy</code>: Different variable combinations (x vs xy).</li>
+                            <li><code class="font-bold text-rose-700">5</code> vs <code class="font-bold text-rose-700">5x</code>: A constant number cannot combine with a variable term.</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        /* ==========================================
+           2. 模式與子玩法切換 (Modes & PlayStyles)
+           ========================================== */
+        function setMode(mode) {
+            if (isAnimating || isQuizOpen) return;
+            currentMode = mode;
+
+            const btnClassic = document.getElementById('btn-mode-classic');
+            const btnObstacle = document.getElementById('btn-mode-obstacle');
+            const btnChallenge = document.getElementById('btn-mode-challenge');
+
+            [btnClassic, btnObstacle, btnChallenge].forEach(btn => {
+                btn.className = "px-3 py-1 rounded-full text-xs font-bold transition-all bg-white/60 text-purple-900 hover:bg-white/90";
+            });
+
+            if (mode === 'challenge') {
+                boardEl.classList.add('mode-challenge');
+                btnChallenge.className = "px-3 py-1 rounded-full text-xs font-bold transition-all bg-slate-900 text-white shadow-md";
+            } else {
+                boardEl.classList.remove('mode-challenge');
+                if (mode === 'classic') {
+                    btnClassic.className = "px-3 py-1 rounded-full text-xs font-bold transition-all bg-purple-600 text-white shadow-md";
+                } else {
+                    btnObstacle.className = "px-3 py-1 rounded-full text-xs font-bold transition-all bg-purple-600 text-white shadow-md";
+                }
+            }
+
+            updateLegend();
+            resetGame();
+        }
+
+        function setPlayStyle(style) {
+            if (isAnimating || isQuizOpen) return;
+            playStyle = style;
+
+            const btnEndless = document.getElementById('btn-play-endless');
+            const btnTimed = document.getElementById('btn-play-timed');
+            const btnMission = document.getElementById('btn-play-mission');
+
+            [btnEndless, btnTimed, btnMission].forEach(btn => {
+                btn.className = "flex-1 py-1 px-2 rounded-xl text-xs font-extrabold transition-all text-purple-900 hover:bg-white/50";
+            });
+
+            const activeBtn = style === 'endless' ? btnEndless : (style === 'timed' ? btnTimed : btnMission);
+            activeBtn.className = "flex-1 py-1 px-2 rounded-xl text-xs font-extrabold transition-all bg-white text-purple-800 shadow-sm";
+
+            resetGame();
+        }
+
+        function toggleTimedSubType() {
+            if (isQuizOpen) return;
+            timedSubType = (timedSubType === 'target') ? 'pure' : 'target';
+            resetGame();
+        }
+
+        function initMissionTargets() {
+            // 任務每次固定只會有 2 個目標
+            missionTargets = {};
+            const getLabel = (fam) => {
+                if (fam === 'x2') return 'x²';
+                if (fam === 'const') return lang === 'zh' ? '常數' : 'Constant';
+                if (fam === 'obstacle') return lang === 'zh' ? '障礙🪨' : 'Obs🪨';
+                return fam;
+            };
+
+            if (currentMode === 'obstacle') {
+                const randomFam = FAMILIES[Math.floor(Math.random() * FAMILIES.length)];
+                missionTargets[randomFam] = { target: 4, current: 0, label: getLabel(randomFam) };
+                missionTargets['obstacle'] = { target: 3, current: 0, label: getLabel('obstacle') };
+            } else {
+                const shuffled = [...FAMILIES].sort(() => Math.random() - 0.5);
+                const selectedTwo = shuffled.slice(0, 2);
+                selectedTwo.forEach((fam, idx) => {
+                    missionTargets[fam] = {
+                        target: idx === 0 ? 4 : 3,
+                        current: 0,
+                        label: getLabel(fam)
+                    };
+                });
+            }
+        }
+
+        function updateStatusWidget() {
+            const t = I18N[lang];
+            if (playStyle === 'endless') {
+                statusWidget.innerHTML = `<div class="text-[11px] font-bold text-purple-900 leading-snug">${t.endlessStatus}</div>`;
+            } else if (playStyle === 'timed') {
+                const mins = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+                const secs = String(remainingSeconds % 60).padStart(2, '0');
+                const subLabel = timedSubType === 'target' ? t.timedTargetLabel : t.timedPureLabel;
+                const timeColor = remainingSeconds <= 30 ? 'text-rose-600 animate-pulse' : 'text-purple-900';
+                statusWidget.innerHTML = `
+                    <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                        <span class="font-fredoka text-base sm:text-lg ${timeColor}">⏱️ ${mins}:${secs}</span>
+                        <button onclick="toggleTimedSubType()" class="bg-purple-200 hover:bg-purple-300 text-purple-900 px-1.5 py-0.5 rounded-lg text-[10px] font-black transition-all">
+                            ${subLabel} 🔄
+                        </button>
+                    </div>
+                `;
+            } else if (playStyle === 'mission') {
+                let badges = Object.keys(missionTargets).map(k => {
+                    let m = missionTargets[k];
+                    let done = m.current >= m.target;
+                    let cls = done ? 'bg-emerald-500 text-white' : 'bg-white text-purple-900 border border-purple-200';
+                    let label = k === 'obstacle'
+                        ? (lang === 'zh' ? '障礙🪨' : 'Obs🪨')
+                        : (k === 'const' ? (lang === 'zh' ? '常數' : 'Constant') : m.label);
+                    return `<span class="px-1.5 py-0.5 rounded-lg text-[10px] font-black ${cls}">${label}: ${Math.min(m.current, m.target)}/${m.target}${done ? '✓' : ''}</span>`;
+                }).join(' ');
+                statusWidget.innerHTML = `
+                    <div class="text-[10px] font-black text-purple-800 mb-0.5">${t.missionTitle}</div>
+                    <div class="flex flex-wrap justify-center gap-1">${badges}</div>
+                `;
+            }
+        }
+
+        function startTimerIfNeeded() {
+            if (gameTimerInterval) clearInterval(gameTimerInterval);
+            if (playStyle !== 'timed') return;
+
+            remainingSeconds = TIMED_SECONDS;
+            updateStatusWidget();
+
+            gameTimerInterval = setInterval(() => {
+                if (isGameOver) {
+                    clearInterval(gameTimerInterval);
+                    return;
+                }
+                // 當學生正在回答彈出問題時，暫停倒數計時
+                if (isQuizOpen) return;
+
+                remainingSeconds--;
+                updateStatusWidget();
+
+                if (remainingSeconds <= 0) {
+                    clearInterval(gameTimerInterval);
+                    endGameSession('timeout');
+                }
+            }, 1000);
+        }
+
+        function checkGameplayGoals() {
+            if (isGameOver) return;
+
+            if (playStyle === 'timed' && timedSubType === 'target' && score >= TIMED_TARGET_SCORE) {
+                endGameSession('timed_win');
+            } else if (playStyle === 'mission') {
+                const allDone = Object.values(missionTargets).every(m => m.current >= m.target);
+                if (allDone) {
+                    endGameSession('mission_win');
+                }
+            }
+        }
+
+        function endGameSession(reason) {
+            isGameOver = true;
+            if (gameTimerInterval) clearInterval(gameTimerInterval);
+            clearIdleHintTimer();
+
+            const t = I18N[lang];
+            const iconEl = document.getElementById('result-icon');
+            const titleEl = document.getElementById('result-title');
+            const descEl = document.getElementById('result-desc');
+
+            if (reason === 'mission_win') {
+                iconEl.innerText = '🎯';
+                titleEl.innerText = t.resWinTitle;
+                descEl.innerText = lang === 'zh'
+                    ? `你已成功完成所有指定同類項消除任務！最終得分：${score} 分。`
+                    : `You completed all target like-term missions! Final Score: ${score}.`;
+            } else if (reason === 'timed_win') {
+                iconEl.innerText = '🏆';
+                titleEl.innerText = t.resWinTitle;
+                descEl.innerText = lang === 'zh'
+                    ? `你在 3 分鐘限時內成功突破 ${TIMED_TARGET_SCORE} 分目標！最終得分：${score} 分。`
+                    : `You reached the ${TIMED_TARGET_SCORE} pts goal within 3 minutes! Final Score: ${score}.`;
+            } else {
+                iconEl.innerText = '⏰';
+                titleEl.innerText = t.resTimeUpTitle;
+                descEl.innerText = lang === 'zh'
+                    ? `3 分鐘限時挑戰結束！你的最終得分為：${score} 分。`
+                    : `3-minute challenge ended! Your final score is: ${score}.`;
+            }
+
+            openModal('result-modal');
+        }
+
+        function updateLegend() {
+            const t = I18N[lang];
+            if (currentMode === 'challenge') {
+                legendEl.innerHTML = `
+                    <div class="text-xs font-extrabold text-slate-800 text-center flex items-center gap-1.5">
+                        <span class="w-4 h-4 rounded-full bg-slate-800 inline-block border border-slate-600 shadow-sm shrink-0"></span>
+                        <span>${t.legendChallenge}</span>
+                    </div>
+                `;
+            } else {
+                legendEl.innerHTML = `
+                    <div class="flex items-center gap-1 text-xs font-bold"><div class="w-4 h-4 candy-x rounded-sm"></div> x</div>
+                    <div class="flex items-center gap-1 text-xs font-bold"><div class="w-4 h-4 candy-y rounded-full"></div> y</div>
+                    <div class="flex items-center gap-1 text-xs font-bold"><div class="w-4 h-4 candy-x2" style="clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%)"></div> x²</div>
+                    <div class="flex items-center gap-1 text-xs font-bold"><div class="w-4 h-4 candy-const" style="clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%)"></div> ${t.legendConst}</div>
+                    <div class="flex items-center gap-1 text-xs font-bold"><div class="w-4 h-4 candy-xy" style="border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%"></div> xy</div>
+                    ${currentMode === 'obstacle' ? `<div class="flex items-center gap-1 text-xs font-bold text-slate-700"><div class="w-4 h-4 candy-obstacle"></div> ${t.legendObstacle}</div>` : ''}
+                `;
+            }
+        }
+
+        /* ==========================================
+           3. 錯誤診斷提示系統 (Error Feedback Toast)
+           ========================================== */
+        function setFeedback(message, type = 'info') {
+            feedbackText.innerText = message;
+            feedbackBar.classList.remove('border-l-indigo-500', 'border-l-rose-500', 'border-l-emerald-500', 'border-l-amber-500', 'bg-rose-50/90', 'bg-emerald-50/90', 'bg-amber-50/90', 'shake-anim');
+
+            if (type === 'error') {
+                feedbackBar.classList.add('border-l-rose-500', 'bg-rose-50/90', 'shake-anim');
+                feedbackText.className = "text-xs sm:text-sm font-extrabold text-rose-800";
+            } else if (type === 'success') {
+                feedbackBar.classList.add('border-l-emerald-500', 'bg-emerald-50/90');
+                feedbackText.className = "text-xs sm:text-sm font-extrabold text-emerald-800";
+            } else if (type === 'hint') {
+                feedbackBar.classList.add('border-l-amber-500', 'bg-amber-50/90');
+                feedbackText.className = "text-xs sm:text-sm font-extrabold text-amber-900";
+            } else {
+                feedbackBar.classList.add('border-l-indigo-500');
+                feedbackText.className = "text-xs sm:text-sm font-extrabold text-slate-700";
+            }
+        }
+
+        function diagnoseFailedSwap(tile1, tile2) {
+            const t = I18N[lang];
+            const f1 = tile1.family;
+            const f2 = tile2.family;
+            const txt1 = tile1.element.querySelector('.term-text').innerText;
+            const txt2 = tile2.element.querySelector('.term-text').innerText;
+
+            analytics.failedSwaps++;
+            if (analytics.familyMastery[f1]) analytics.familyMastery[f1].errors++;
+            if (f2 !== f1 && analytics.familyMastery[f2]) analytics.familyMastery[f2].errors++;
+
+            const pair = new Set([f1, f2]);
+
+            // 1. 次方不同 (x vs x²)
+            if (pair.has('x') && pair.has('x2')) {
+                analytics.errorTypes.diffExponent++;
+                setFeedback(t.errExponent(txt1, txt2), 'error');
+                return;
+            }
+
+            // 2. 常數與未知數混淆 (const vs variable)
+            if (pair.has('const') && f1 !== f2) {
+                analytics.errorTypes.constVsVar++;
+                setFeedback(t.errConstVsVar(txt1, txt2), 'error');
+                return;
+            }
+
+            // 3. 複合變數混淆 (xy vs x / y / x²)
+            if (pair.has('xy') && f1 !== f2) {
+                analytics.errorTypes.diffVar++;
+                setFeedback(t.errCompositeXY(txt1, txt2), 'error');
+                return;
+            }
+
+            // 4. 不同變數 (x vs y, y vs x²)
+            if (f1 !== f2) {
+                analytics.errorTypes.diffVar++;
+                setFeedback(t.errDiffVar(txt1, txt2), 'error');
+                return;
+            }
+
+            // 5. 兩個確實是同類項，但交換後沒連成 3 個一直線
+            analytics.errorTypes.otherNoMatch++;
+            const famDisplay = f1 === 'x2' ? 'x²' : (f1 === 'const' ? (lang === 'zh' ? '常數項' : 'constants') : f1);
+            setFeedback(t.errSameFamNoLine(txt1, txt2, famDisplay), 'error');
+        }
+
+        /* ==========================================
+           4. 7秒自動閃爍提示系統 (7s Idle Auto-Hint)
+           ========================================== */
+        function clearHintVisuals() {
+            document.querySelectorAll('.tile.hint-glow').forEach(el => el.classList.remove('hint-glow'));
+        }
+
+        function clearIdleHintTimer() {
+            if (idleHintTimeout) {
+                clearTimeout(idleHintTimeout);
+                idleHintTimeout = null;
+            }
+        }
+
+        function resetIdleHintTimer() {
+            clearIdleHintTimer();
+            clearHintVisuals();
+            if (isGameOver || isQuizOpen) return;
+
+            idleHintTimeout = setTimeout(() => {
+                if (!isAnimating && !isGameOver && !isQuizOpen) {
+                    showHintMove();
+                }
+            }, IDLE_HINT_DELAY);
+        }
+
+        function findValidMove() {
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    const t1 = board[x][y];
+                    if (!t1 || t1.family === 'obstacle') continue;
+
+                    const neighbors = [
+                        { nx: x + 1, ny: y },
+                        { nx: x, ny: y + 1 }
+                    ];
+
+                    for (let { nx, ny } of neighbors) {
+                        if (nx < BOARD_SIZE && ny < BOARD_SIZE) {
+                            const t2 = board[nx][ny];
+                            if (!t2 || t2.family === 'obstacle') continue;
+
+                            // 模擬交換
+                            board[x][y] = t2;
+                            board[nx][ny] = t1;
+                            const groups = findMatchGroups();
+                            // 還原交換
+                            board[x][y] = t1;
+                            board[nx][ny] = t2;
+
+                            if (groups.length > 0) {
+                                return [t1, t2];
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function showHintMove() {
+            if (isAnimating || isGameOver || isQuizOpen) return;
+            clearHintVisuals();
+
+            const validPair = findValidMove();
+            if (validPair) {
+                validPair[0].element.classList.add('hint-glow');
+                validPair[1].element.classList.add('hint-glow');
+                analytics.hintsUsed++;
+                setFeedback(I18N[lang].autoHintTriggered, 'hint');
+            } else {
+                // 若棋盤死局，自動重新洗牌（保留分數）
+                setFeedback(I18N[lang].noMovesShuffle, 'hint');
+                shuffleBoardKeepScore();
+            }
+        }
+
+        function shuffleBoardKeepScore() {
+            boardEl.innerHTML = '';
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                board[x] = [];
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    let termData;
+                    do {
+                        termData = getRandomTerm();
+                    } while (createsInitialMatch(x, y, termData.family));
+                    board[x][y] = createTileElement(x, y, termData);
+                }
+            }
+            resetIdleHintTimer();
+        }
+
+        /* ==========================================
+           5. 棋盤生成與核心遊戲邏輯
+           ========================================== */
+        function getRandomTerm() {
+            if (currentMode === 'obstacle' && Math.random() < 0.11) {
+                const obsTexts = ['z³', 'ab²'];
+                const text = obsTexts[Math.floor(Math.random() * obsTexts.length)];
+                return { family: 'obstacle', text };
+            }
+
+            const family = FAMILIES[Math.floor(Math.random() * FAMILIES.length)];
+            let coeff;
+            do {
+                coeff = Math.floor(Math.random() * 11) - 5;
+            } while (coeff === 0);
+
+            let text = "";
+            if (family === 'const') {
+                text = `${coeff}`;
+            } else {
+                let baseText = family === 'x2' ? 'x²' : family;
+                if (coeff === 1) text = baseText;
+                else if (coeff === -1) text = `-${baseText}`;
+                else text = `${coeff}${baseText}`;
+            }
+
+            return { family, text };
+        }
+
+        function initBoard() {
+            board = [];
+            boardEl.innerHTML = '';
+            score = 0;
+            scoreEl.innerText = score;
+            selectedTile = null;
+            isGameOver = false;
+            isQuizOpen = false;
+            closeModal('quiz-modal');
+
+            if (playStyle === 'mission') {
+                initMissionTargets();
+            }
+            updateStatusWidget();
+            startTimerIfNeeded();
+
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                board[x] = [];
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    let termData;
+                    do {
+                        termData = getRandomTerm();
+                    } while (createsInitialMatch(x, y, termData.family));
+
+                    board[x][y] = createTileElement(x, y, termData);
+                }
+            }
+
+            // 確保開局至少有一組合法步數
+            if (!findValidMove()) {
+                shuffleBoardKeepScore();
+            } else {
+                resetIdleHintTimer();
+            }
+        }
+
+        function createsInitialMatch(x, y, family) {
+            if (family === 'obstacle') return false;
+            if (x >= 2 && board[x-1][y].family === family && board[x-2][y].family === family) return true;
+            if (y >= 2 && board[x][y-1].family === family && board[x][y-2].family === family) return true;
+            return false;
+        }
+
+        function createTileElement(x, y, termData) {
+            const el = document.createElement('div');
+            el.className = 'tile';
+
+            const candy = document.createElement('div');
+            candy.className = `candy candy-${termData.family}`;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'term-text';
+            textSpan.innerText = termData.text;
+
+            candy.appendChild(textSpan);
+            el.appendChild(candy);
+            boardEl.appendChild(el);
+
+            const tileObj = { x, y, family: termData.family, element: el };
+            updateTilePosition(tileObj, x, y);
+
+            return tileObj;
+        }
+
+        function updateTilePosition(tileObj, logicalX, logicalY) {
+            tileObj.x = logicalX;
+            tileObj.y = logicalY;
+            tileObj.element.style.left = `${logicalX * TILE_SIZE_PC}%`;
+            tileObj.element.style.top = `${logicalY * TILE_SIZE_PC}%`;
+        }
+
+        function getCoefficient(tile) {
+            if (!tile || tile.family === 'obstacle') return 0;
+            const text = tile.element.querySelector('.term-text').innerText;
+            if (tile.family === 'const') return parseInt(text, 10);
+
+            let base = tile.family === 'x2' ? 'x²' : tile.family;
+            if (text === base) return 1;
+            if (text === `-${base}`) return -1;
+            return parseInt(text.replace(base, ''), 10);
+        }
+
+        function formatCombinedResult(family, sumCoeff) {
+            if (sumCoeff === 0) return "0";
+            if (family === 'const') return `${sumCoeff}`;
+
+            let base = family === 'x2' ? 'x²' : family;
+            if (sumCoeff === 1) return base;
+            if (sumCoeff === -1) return `-${base}`;
+            return `${sumCoeff}${base}`;
+        }
+
+        function spawnCombinePopup(centerX, centerY, resultText) {
+            const popup = document.createElement('div');
+            popup.className = 'combine-popup';
+            popup.innerText = `${I18N[lang].combinePrefix}: ${resultText}`;
+
+            let leftPc = (centerX + 0.5) * TILE_SIZE_PC;
+            let topPc = (centerY + 0.5) * TILE_SIZE_PC;
+
+            popup.style.left = `${leftPc}%`;
+            popup.style.top = `${topPc}%`;
+
+            boardEl.appendChild(popup);
+            setTimeout(() => { popup.remove(); }, 900);
+        }
+
+        boardEl.addEventListener('pointerdown', (e) => {
+            if (isAnimating || isGameOver || isQuizOpen) return;
+            resetIdleHintTimer();
+
+            let el = e.target.closest('.tile');
+            if (!el) return;
+
+            let x = Math.round(parseFloat(el.style.left) / TILE_SIZE_PC);
+            let y = Math.round(parseFloat(el.style.top) / TILE_SIZE_PC);
+
+            sourceTile = board[x]?.[y];
+            if (!sourceTile || sourceTile.family === 'obstacle') {
+                sourceTile = null;
+                return;
+            }
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            el.classList.add('scale-90');
+            el.setPointerCapture(e.pointerId);
+        });
+
+        boardEl.addEventListener('pointerup', (e) => {
+            if (isAnimating || isGameOver || isQuizOpen || !sourceTile) return;
+
+            sourceTile.element.classList.remove('scale-90');
+
+            let endX = e.clientX;
+            let endY = e.clientY;
+            let dx = endX - startX;
+            let dy = endY - startY;
+            let threshold = 28;
+
+            if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+                let targetX = sourceTile.x;
+                let targetY = sourceTile.y;
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    dx > 0 ? targetX++ : targetX--;
+                } else {
+                    dy > 0 ? targetY++ : targetY--;
+                }
+
+                if (targetX >= 0 && targetX < BOARD_SIZE && targetY >= 0 && targetY < BOARD_SIZE) {
+                    if (board[targetX][targetY].family !== 'obstacle') {
+                        attemptSwap(sourceTile, board[targetX][targetY]);
+                    }
+                }
+
+                if (selectedTile) {
+                    selectedTile.element.classList.remove('selected');
+                    selectedTile = null;
+                }
+            } else {
+                if (!selectedTile) {
+                    selectedTile = sourceTile;
+                    selectedTile.element.classList.add('selected');
+                } else {
+                    let isAdjacent = (Math.abs(selectedTile.x - sourceTile.x) + Math.abs(selectedTile.y - sourceTile.y)) === 1;
+                    selectedTile.element.classList.remove('selected');
+
+                    if (isAdjacent && sourceTile.family !== 'obstacle') {
+                        attemptSwap(selectedTile, sourceTile);
+                    } else if (selectedTile !== sourceTile && sourceTile.family !== 'obstacle') {
+                        selectedTile = sourceTile;
+                        selectedTile.element.classList.add('selected');
+                        return;
+                    }
+                    selectedTile = null;
+                }
+            }
+            sourceTile = null;
+        });
+
+        function attemptSwap(tile1, tile2) {
+            if (!tile1 || !tile2 || tile1.family === 'obstacle' || tile2.family === 'obstacle') return;
+            isAnimating = true;
+            clearIdleHintTimer();
+            clearHintVisuals();
+
+            let x1 = tile1.x, y1 = tile1.y;
+            let x2 = tile2.x, y2 = tile2.y;
+
+            board[x1][y1] = tile2;
+            board[x2][y2] = tile1;
+
+            updateTilePosition(tile1, x2, y2);
+            updateTilePosition(tile2, x1, y1);
+
+            setTimeout(() => {
+                let matchGroups = findMatchGroups();
+
+                if (matchGroups.length > 0) {
+                    analytics.successSwaps++;
+                    if (quizModeEnabled) {
+                        // 親自計算模式：只在玩家主動交換成功的第一下彈出問題視窗
+                        triggerActiveQuizForGroup(matchGroups[0], () => {
+                            processMatchGroups(matchGroups, true);
+                        });
+                    } else {
+                        processMatchGroups(matchGroups, false);
+                    }
+                } else {
+                    // 交換失敗：觸發錯誤診斷回饋與退回原位
+                    diagnoseFailedSwap(tile1, tile2);
+                    board[x1][y1] = tile1;
+                    board[x2][y2] = tile2;
+                    updateTilePosition(tile1, x1, y1);
+                    updateTilePosition(tile2, x2, y2);
+                    setTimeout(() => {
+                        isAnimating = false;
+                        resetIdleHintTimer();
+                    }, 300);
+                }
+            }, 300);
+        }
+
+        function findMatchGroups() {
+            let groups = [];
+            let visitedH = new Set();
+            let visitedV = new Set();
+
+            // 水平連線檢查
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE - 2; x++) {
+                    if (!board[x][y]) continue;
+                    let matchFamily = board[x][y].family;
+                    if (matchFamily === 'obstacle') continue;
+
+                    if (board[x+1][y] && board[x+1][y].family === matchFamily &&
+                        board[x+2][y] && board[x+2][y].family === matchFamily) {
+
+                        let groupTiles = [board[x][y], board[x+1][y], board[x+2][y]];
+                        let k = 3;
+                        while (x+k < BOARD_SIZE && board[x+k][y] && board[x+k][y].family === matchFamily) {
+                            groupTiles.push(board[x+k][y]);
+                            k++;
+                        }
+
+                        let groupKey = groupTiles.map(t => `${t.x},${t.y}`).sort().join(';');
+                        if (!visitedH.has(groupKey)) {
+                            visitedH.add(groupKey);
+                            groups.push({ family: matchFamily, tiles: groupTiles });
+                        }
+                        x += k - 1;
+                    }
+                }
+            }
+
+            // 垂直連線檢查
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                for (let y = 0; y < BOARD_SIZE - 2; y++) {
+                    if (!board[x][y]) continue;
+                    let matchFamily = board[x][y].family;
+                    if (matchFamily === 'obstacle') continue;
+
+                    if (board[x][y+1] && board[x][y+1].family === matchFamily &&
+                        board[x][y+2] && board[x][y+2].family === matchFamily) {
+
+                        let groupTiles = [board[x][y], board[x][y+1], board[x][y+2]];
+                        let k = 3;
+                        while (y+k < BOARD_SIZE && board[x][y+k] && board[x][y+k].family === matchFamily) {
+                            groupTiles.push(board[x][y+k]);
+                            k++;
+                        }
+
+                        let groupKey = groupTiles.map(t => `${t.x},${t.y}`).sort().join(';');
+                        if (!visitedV.has(groupKey)) {
+                            visitedV.add(groupKey);
+                            groups.push({ family: matchFamily, tiles: groupTiles });
+                        }
+                        y += k - 1;
+                    }
+                }
+            }
+
+            return groups;
+        }
+
+        function processMatchGroups(groups, skipToastMessage = false) {
+            const finalPopCoords = new Set();
+            const obstaclesPopped = new Set();
+            let totalMatchCount = 0;
+            let lastEquationStr = "";
+
+            groups.forEach(group => {
+                let sumCoeff = 0;
+                let sumX = 0, sumY = 0;
+                let termStrings = [];
+
+                // 紀錄學習數據與任務進度
+                analytics.totalGroupsCombined++;
+                if (analytics.familyMastery[group.family]) {
+                    analytics.familyMastery[group.family].matched++;
+                }
+                if (playStyle === 'mission' && missionTargets[group.family]) {
+                    missionTargets[group.family].current++;
+                }
+
+                group.tiles.forEach(t => {
+                    finalPopCoords.add(`${t.x},${t.y}`);
+                    let c = getCoefficient(t);
+                    sumCoeff += c;
+                    sumX += t.x;
+                    sumY += t.y;
+                    totalMatchCount++;
+                    let rawTxt = t.element.querySelector('.term-text').innerText;
+                    termStrings.push(rawTxt.startsWith('-') ? `(${rawTxt})` : rawTxt);
+                });
+
+                let centerX = sumX / group.tiles.length;
+                let centerY = sumY / group.tiles.length;
+                let resultText = formatCombinedResult(group.family, sumCoeff);
+
+                lastEquationStr = `${termStrings.join(' + ')} = ${resultText}`;
+                spawnCombinePopup(centerX, centerY, resultText);
+
+                let midTileIndex = Math.floor(group.tiles.length / 2);
+                let midTile = group.tiles[midTileIndex];
+                if (midTile && midTile.element) {
+                    let textSpan = midTile.element.querySelector('.term-text');
+                    if (textSpan) {
+                        textSpan.innerText = resultText;
+                        textSpan.style.color = '#ffd700';
+                        textSpan.style.transform = 'scale(1.3)';
+                    }
+                }
+
+                // 消除相鄰的障礙石頭
+                group.tiles.forEach(t => {
+                    const neighbors = [
+                        {x: t.x + 1, y: t.y},
+                        {x: t.x - 1, y: t.y},
+                        {x: t.x, y: t.y + 1},
+                        {x: t.x, y: t.y - 1}
+                    ];
+                    neighbors.forEach(n => {
+                        if (n.x >= 0 && n.x < BOARD_SIZE && n.y >= 0 && n.y < BOARD_SIZE) {
+                            if (board[n.x][n.y] && board[n.x][n.y].family === 'obstacle') {
+                                finalPopCoords.add(`${n.x},${n.y}`);
+                                obstaclesPopped.add(`${n.x},${n.y}`);
+                            }
+                        }
+                    });
+                });
+            });
+
+            if (playStyle === 'mission' && missionTargets.obstacle && obstaclesPopped.size > 0) {
+                missionTargets.obstacle.current += obstaclesPopped.size;
+            }
+
+            if (lastEquationStr && !skipToastMessage) {
+                setFeedback(I18N[lang].msgSuccessCombine(lastEquationStr), 'success');
+            }
+
+            const popList = Array.from(finalPopCoords).map(str => {
+                let parts = str.split(',');
+                return { x: parseInt(parts[0]), y: parseInt(parts[1]) };
+            });
+
+            score += totalMatchCount * 10 + (totalMatchCount > 3 ? (totalMatchCount - 3) * 20 : 0);
+            scoreEl.innerText = score;
+            updateStatusWidget();
+
+            popList.forEach(coord => {
+                let tile = board[coord.x][coord.y];
+                if (tile) {
+                    tile.element.classList.add('popping');
+                    setTimeout(() => { tile.element.remove(); }, 250); 
+                    board[coord.x][coord.y] = null;
+                }
+            });
+
+            setTimeout(() => {
+                applyGravity();
+                setTimeout(() => {
+                    refillEmptySpaces();
+                    setTimeout(() => {
+                        let newGroups = findMatchGroups();
+                        if (newGroups.length > 0) {
+                            // 掉落觸發的自動連鎖反應直接順暢消除，不重複彈窗打斷遊戲節奏
+                            processMatchGroups(newGroups, false); 
+                        } else {
+                            isAnimating = false;
+                            checkGameplayGoals();
+                            if (!isGameOver) {
+                                if (!findValidMove()) {
+                                    setFeedback(I18N[lang].noMovesShuffle, 'hint');
+                                    shuffleBoardKeepScore();
+                                } else {
+                                    resetIdleHintTimer();
+                                }
+                            }
+                        }
+                    }, 380); 
+                }, 280);
+            }, 250); 
+        }
+
+        function applyGravity() {
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                let emptyCount = 0;
+                for (let y = BOARD_SIZE - 1; y >= 0; y--) {
+                    if (board[x][y] === null) {
+                        emptyCount++;
+                    } else if (emptyCount > 0) {
+                        let newY = y + emptyCount;
+                        board[x][newY] = board[x][y];
+                        board[x][y] = null;
+                        updateTilePosition(board[x][newY], x, newY);
+                    }
+                }
+            }
+        }
+
+        function refillEmptySpaces() {
+            let newlyCreated = [];
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                let emptyCount = 0;
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    if (board[x][y] === null) emptyCount++;
+                }
+
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    if (board[x][y] === null) {
+                        let termData = getRandomTerm();
+                        let spawnY = y - emptyCount;
+                        let tileObj = createTileElement(x, spawnY, termData);
+                        board[x][y] = tileObj;
+                        newlyCreated.push(tileObj);
+                    }
+                }
+            }
+
+            boardEl.offsetHeight;
+
+            newlyCreated.forEach(tile => {
+                let targetY = board[tile.x].indexOf(tile);
+                updateTilePosition(tile, tile.x, targetY);
+            });
+        }
+
+        function resetGame() {
+            if (isAnimating || isQuizOpen) return;
+            setFeedback(I18N[lang].welcomeMsg, 'info');
+            initBoard();
+        }
+
+        /* ==========================================
+           6. 學習分析報告面板 (Learning Analytics Modal)
+           ========================================== */
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function openAnalyticsModal() {
+            renderAnalyticsContent();
+            openModal('analytics-modal');
+        }
+
+        function resetAnalytics() {
+            analytics = {
+                successSwaps: 0,
+                failedSwaps: 0,
+                totalGroupsCombined: 0,
+                hintsUsed: 0,
+                quizTotalQuestions: 0,
+                quizFirstTryCorrect: 0,
+                quizWrongAttempts: 0,
+                errorTypes: { diffExponent: 0, diffVar: 0, constVsVar: 0, otherNoMatch: 0 },
+                familyMastery: {
+                    x: { matched: 0, errors: 0 },
+                    y: { matched: 0, errors: 0 },
+                    x2: { matched: 0, errors: 0 },
+                    xy: { matched: 0, errors: 0 },
+                    const: { matched: 0, errors: 0 }
+                }
+            };
+            renderAnalyticsContent();
+        }
+
+        function renderAnalyticsContent() {
+            const container = document.getElementById('analytics-content');
+            const totalAttempts = analytics.successSwaps + analytics.failedSwaps;
+            const accuracy = totalAttempts > 0 ? Math.round((analytics.successSwaps / totalAttempts) * 100) : 100;
+            const quizAccuracy = analytics.quizTotalQuestions > 0
+                ? Math.round((analytics.quizFirstTryCorrect / analytics.quizTotalQuestions) * 100)
+                : 100;
+
+            const familyLabels = {
+                x: 'x 項 (Linear x)',
+                y: 'y 項 (Linear y)',
+                x2: 'x² 項 (Quadratic x²)',
+                xy: 'xy 項 (Product xy)',
+                const: lang === 'zh' ? '常數項 (Constant)' : 'Constant'
+            };
+
+            let masteryRowsHtml = Object.keys(analytics.familyMastery).map(fam => {
+                const data = analytics.familyMastery[fam];
+                const tot = data.matched + data.errors;
+                const rate = tot > 0 ? Math.round((data.matched / tot) * 100) : 100;
+                const barColor = rate >= 80 ? 'bg-emerald-500' : (rate >= 50 ? 'bg-amber-500' : 'bg-rose-500');
+                return `
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-bold">
+                            <span>${familyLabels[fam]}</span>
+                            <span class="text-slate-600">${lang === 'zh' ? `成功 ${data.matched} 組 / 失誤 ${data.errors} 次` : `${data.matched} matched / ${data.errors} errors`} (${rate}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                            <div class="${barColor} h-full transition-all" style="width: ${rate}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (lang === 'zh') {
+                container.innerHTML = `
+                    <!-- Summary KPI Cards -->
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-2xl">
+                            <div class="text-[10px] font-bold text-emerald-700">成功交換配對</div>
+                            <div class="text-xl font-black text-emerald-900">${analytics.successSwaps}</div>
+                        </div>
+                        <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-2xl">
+                            <div class="text-[10px] font-bold text-rose-700">嘗試失敗次數</div>
+                            <div class="text-xl font-black text-rose-900">${analytics.failedSwaps}</div>
+                        </div>
+                        <div class="bg-indigo-50 border border-indigo-200 p-2.5 rounded-2xl">
+                            <div class="text-[10px] font-bold text-indigo-700">同類項識別率</div>
+                            <div class="text-xl font-black text-indigo-900">${accuracy}%</div>
+                        </div>
+                    </div>
+
+                    <!-- Self-Calc Quiz Performance -->
+                    <div class="bg-purple-50 p-3.5 rounded-2xl border border-purple-200 space-y-1.5">
+                        <div class="font-black text-purple-900 text-xs sm:text-sm">🧮 親自計算（係數加減運算）表現</div>
+                        <div class="flex justify-between text-xs">
+                            <span>• 總作答題數 / 一次答對題數：</span>
+                            <span class="font-black text-purple-800">${analytics.quizFirstTryCorrect} / ${analytics.quizTotalQuestions} 題 (${quizAccuracy}%)</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span>• 係數計算錯誤（觸發鷹架提示）次數：</span>
+                            <span class="font-black text-rose-700">${analytics.quizWrongAttempts} 次</span>
+                        </div>
+                    </div>
+
+                    <!-- Mastery Breakdown by Term Family -->
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                        <div class="font-black text-slate-800 text-xs sm:text-sm">📈 各類代數項掌握度 (Mastery by Term Type)</div>
+                        ${masteryRowsHtml}
+                    </div>
+
+                    <!-- Diagnostic Error Breakdown -->
+                    <div class="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 space-y-1.5">
+                        <div class="font-black text-amber-900 text-xs sm:text-sm">🔍 迷思概念診斷紀錄 (Misconception Diagnostics)</div>
+                        <div class="flex justify-between text-xs">
+                            <span>• 指數（次方）混淆 (如將 <code>x</code> 與 <code>x²</code> 互換)：</span>
+                            <span class="font-black text-rose-700">${analytics.errorTypes.diffExponent} 次</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span>• 未知數組合混淆 (如將 <code>x</code>、<code>y</code>、<code>xy</code> 互換)：</span>
+                            <span class="font-black text-rose-700">${analytics.errorTypes.diffVar} 次</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span>• 常數與代數項混淆 (如將純數字與未知數互換)：</span>
+                            <span class="font-black text-rose-700">${analytics.errorTypes.constVsVar} 次</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500 pt-1 border-t border-amber-200/60">
+                            <span>💡 7秒自動提示觸發：${analytics.hintsUsed} 次 ｜ 累計消除：${analytics.totalGroupsCombined} 組</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-2xl">
+                            <div class="text-[10px] font-bold text-emerald-700">Successful Swaps</div>
+                            <div class="text-xl font-black text-emerald-900">${analytics.successSwaps}</div>
+                        </div>
+                        <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-2xl">
+                            <div class="text-[10px] font-bold text-rose-700">Failed Attempts</div>
+                            <div class="text-xl font-black text-rose-900">${analytics.failedSwaps}</div>
+                        </div>
+                        <div class="bg-indigo-50 border border-indigo-200 p-2.5 rounded-2xl">
+                            <div class="text-[10px] font-bold text-indigo-700">ID Accuracy</div>
+                            <div class="text-xl font-black text-indigo-900">${accuracy}%</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-purple-50 p-3.5 rounded-2xl border border-purple-200 space-y-1.5">
+                        <div class="font-black text-purple-900 text-xs sm:text-sm">🧮 Self-Calc Quiz Performance</div>
+                        <div class="flex justify-between text-xs">
+                            <span>• First-Try Correct / Total Answered:</span>
+                            <span class="font-black text-purple-800">${analytics.quizFirstTryCorrect} / ${analytics.quizTotalQuestions} (${quizAccuracy}%)</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span>• Calculation Errors (Scaffolding Triggered):</span>
+                            <span class="font-black text-rose-700">${analytics.quizWrongAttempts}</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                        <div class="font-black text-slate-800 text-xs sm:text-sm">📈 Mastery by Algebraic Term Type</div>
+                        ${masteryRowsHtml}
+                    </div>
+
+                    <div class="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 space-y-1.5">
+                        <div class="font-black text-amber-900 text-xs sm:text-sm">🔍 Misconception Diagnostics</div>
+                        <div class="flex justify-between text-xs">
+                            <span>• Exponent Confusion (swapping <code>x</code> & <code>x²</code>):</span>
+                            <span class="font-black text-rose-700">${analytics.errorTypes.diffExponent}</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span>• Variable Confusion (swapping <code>x</code>, <code>y</code>, <code>xy</code>):</span>
+                            <span class="font-black text-rose-700">${analytics.errorTypes.diffVar}</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span>• Constant vs. Variable Confusion:</span>
+                            <span class="font-black text-rose-700">${analytics.errorTypes.constVsVar}</span>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500 pt-1 border-t border-amber-200/60">
+                            <span>💡 7s Auto-Hints Triggered: ${analytics.hintsUsed} ｜ Total Groups Combined: ${analytics.totalGroupsCombined}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = function() {
+            applyLanguageUI();
+            initBoard();
+        };
+    </script>
+</body>
+</html>
